@@ -404,6 +404,67 @@ function App(){
     X.writeFile(wb,`${d.name}_${YEAR}_播種報告.xlsx`);
   };
 
+  const downloadTemplate=()=>{
+    const X=window.XLSX;if(!X)return;
+    const hdr=["生産者ID","生産者名"];
+    for(let n=1;n<=25;n++)hdr.push(`回数${n}指定日1`,`回数${n}指定日2`);
+    const sample={"生産者ID":"p001","生産者名":"山田太郎","回数1指定日1":"7/5","回数1指定日2":"7/6"};
+    const wb=X.utils.book_new();X.utils.book_append_sheet(wb,X.utils.json_to_sheet([sample],{header:hdr}),"インポート用");
+    X.writeFile(wb,"インポートテンプレート.xlsx");
+  };
+
+  const parseDateCell=(val)=>{
+    if(val===undefined||val===null||val==="")return"";
+    if(val instanceof Date)return`${val.getMonth()+1}/${val.getDate()}`;
+    if(typeof val==="number"){const dt=new Date(Math.floor(val-25569)*86400*1000);return`${dt.getUTCMonth()+1}/${dt.getUTCDate()}`;}
+    const str=String(val).trim();const m=str.match(/^(\d{1,2})\s*[\/月]\s*(\d{1,2})/);
+    if(m)return`${parseInt(m[1],10)}/${parseInt(m[2],10)}`;
+    return str;
+  };
+
+  const importExcel=async(e)=>{
+    const file=e.target.files[0];if(!file)return;
+    const X=window.XLSX;if(!X)return;
+    const reader=new FileReader();
+    reader.onload=async(evt)=>{
+      try{
+        const wb=X.read(evt.target.result,{type:"binary",cellDates:true});
+        const json=X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+        let count=0;
+        for(const row of json){
+          const p=String(row["生産者ID"]??"").trim();if(!p)continue;
+          const pname=String(row["生産者名"]||p).trim();
+          // usersコレクションに登録（なければ追加）
+          const usnap=await DB.collection("users").doc(p).get();
+          if(!usnap.exists){
+            await DB.collection("users").doc(p).set({name:pname});
+          }
+          // reportsに収穫指定日を設定
+          const snap=await DB.collection("reports").doc(YEAR+"_"+p).get();
+          const existing=snap.exists?snap.data():{name:pname,rows:makeEmptyRows()};
+          existing.name=pname;
+          for(let no=1;no<=25;no++){
+            const h1=parseDateCell(row[`回数${no}指定日1`]);
+            const h2=parseDateCell(row[`回数${no}指定日2`]);
+            const ri=existing.rows.findIndex(r=>r.no===no);
+            if(ri>=0){
+              existing.rows[ri].harvest1=h1;
+              existing.rows[ri].harvest2=h2;
+              existing.rows[ri].target=computeTarget(h1,offsetRules);
+            }
+          }
+          await DB.collection("reports").doc(YEAR+"_"+p).set(existing);
+          count++;
+        }
+        // 画面を更新
+        const newAll=await fbLoadAll();setAll(newAll);
+        alert(`インポート完了：${count}名を登録・更新しました`);
+      }catch(err){alert("インポートエラー: "+err.message);}
+    };
+    reader.readAsBinaryString(file);
+    e.target.value="";
+  };
+
   const exportAll=()=>{
     const X=window.XLSX;if(!X)return;
     const wb=X.utils.book_new();
@@ -713,6 +774,10 @@ function App(){
           {saving&&<span className="text-blue-200 text-xs">💾 保存中...</span>}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <label className="bg-blue-800 hover:bg-blue-900 text-sm px-3 py-1 rounded cursor-pointer">
+            Excelインポート<input type="file" accept=".xlsx,.xls" className="hidden" onChange={importExcel}/>
+          </label>
+          <button onClick={downloadTemplate} className="bg-blue-800 hover:bg-blue-900 text-sm px-3 py-1 rounded">テンプレートDL</button>
           <button onClick={exportAll} className="bg-blue-800 hover:bg-blue-900 text-sm px-3 py-1 rounded">全体Excel出力</button>
           <button onClick={()=>setShowSettings(true)} className="bg-blue-800 hover:bg-blue-900 text-sm px-3 py-1 rounded">⚙ 播種目安設定</button>
           <button onClick={logout} className="bg-blue-900 hover:bg-blue-950 text-sm px-3 py-1 rounded">ログアウト</button>
