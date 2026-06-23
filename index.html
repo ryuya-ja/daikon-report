@@ -41,7 +41,6 @@ const { useState, useEffect, useCallback } = React;
 
 const CROP_OPTIONS = ["T452","蒼の砦(NR335)","晩々G","春ひびき","夏つかさ旬","NIKURA大根","夏つかさ","夏つかさ快","T770","秋こまち"];
 const MULCH_OPTIONS = ["透明","銀ネズ","ハイデン","白","シルバー","崩壊マルチ","露地(無記入)"];
-const CROP_COLORS = ["#10b981","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16","#ec4899","#6366f1"];
 const HARVEST1 = ["7/5","7/11","7/20","7/30","8/3","8/12","8/21","8/27","9/4","9/8","9/13","9/21","9/27","10/5","10/15"];
 const HARVEST2 = ["7/6","7/12","7/21","7/31","8/4","8/13","8/22","8/28","9/5","9/10","9/14","9/22","9/28","10/6","10/16"];
 const TARGET   = ["5/6","5/12","5/21","6/2","6/6","6/17","6/26","7/2","7/8","7/12","7/17","7/23","7/29","8/4","8/14"];
@@ -327,178 +326,168 @@ function App() {
   const [loginPw,setLoginPw]=useState("");
   const [loginError,setLoginError]=useState("");
   const [loading,setLoading]=useState(false);
-  const [saving,setSaving]=useState(false);
-  const [year]=useState("2026");
   const [producerData,setProducerData]=useState(null);
-  const [allProducers,setAllProducers]=useState({});
-  const [jaTab,setJaTab]=useState("list");
-  const [producerTab,setProducerTab]=useState("input");
-  const [selectedPid,setSelectedPid]=useState(null);
+  const [saving,setSaving]=useState(false);
   const [expandedRow,setExpandedRow]=useState(null);
   const [modal,setModal]=useState(null);
   const [dateConfirm,setDateConfirm]=useState(null);
+  const [jaTab,setJaTab]=useState("list");
+  const [allProducers,setAllProducers]=useState({});
+  const [selectedPid,setSelectedPid]=useState(null);
+  const [year,setYear]=useState(new Date().getFullYear());
+  const [producerTab,setProducerTab]=useState("input");
 
-  useEffect(()=>{
-    const unsub = auth.onAuthStateChanged(u=>{ setFbReady(true); });
-    return ()=>unsub();
-  },[]);
+  const modalCurrentVal = useCallback(()=>{
+    if(!modal) return "";
+    if(modal.isJA) return allProducers[modal.pid]?.rows[modal.rowIdx]?.[modal.fld]||"";
+    return producerData?.rows[modal.rowIdx]?.[modal.fld]||"";
+  },[modal,producerData,allProducers]);
 
-  const handleLogin = async()=>{
-    if(!loginId||!loginPw) return;
-    setLoading(true); setLoginError("");
-    try {
-      const email = loginId==="ja" ? "ja@ja.local" : `${loginId}@daikon.local`;
-      await auth.signInWithEmailAndPassword(email, loginPw);
-      if(loginId==="ja"){
-        setRole("ja");
-        const all = await fbLoadAll(year);
-        setAllProducers(all);
-      } else {
-        const users = await fbLoadUsers();
-        const uinfo = users[loginId];
-        if(!uinfo){ setLoginError("生産者情報が見つかりません"); await auth.signOut(); setLoading(false); return; }
-        setRole("producer");
-        setCurrentPid(loginId);
-        setProducerName(uinfo.name||loginId);
-        const pd = await fbLoad(loginId, year);
-        if(pd){ setProducerData(pd); }
-        else {
-          const newPd={name:uinfo.name||loginId, rows:makeEmptyRows()};
-          setProducerData(newPd);
-          await fbSave(loginId, year, newPd);
+  const setCell = useCallback((rowIdx,fld,val)=>{
+    setProducerData(prev=>{
+      const newRows=[...(prev?.rows||makeEmptyRows())];
+      newRows[rowIdx][fld]=val;
+      if(fld==="seedDate"){
+        const h1=newRows[rowIdx].harvest1;
+        const target=computeTarget(h1);
+        const seedDoy=mdToDayOfYear(val.slice(5).replace("-","/"));
+        const targetDoy=mdToDayOfYear(target);
+        if(seedDoy!==null&&targetDoy!==null&&Math.abs(seedDoy-targetDoy)>7){
+          setDateConfirm({rowIdx,newVal:val,diff:seedDoy-targetDoy});
+          return prev;
         }
       }
-    } catch(e) {
-      setLoginError("IDまたはパスワードが正しくありません");
-    }
-    setLoading(false);
-  };
-
-  const handleLogout = async()=>{
-    await auth.signOut();
-    setRole(null); setCurrentPid(null); setProducerData(null);
-    setAllProducers({}); setLoginId(""); setLoginPw("");
-    setSelectedPid(null); setExpandedRow(null);
-  };
-
-  const setCell = useCallback(async(rowIdx,field,value)=>{
-    setProducerData(prev=>{
-      if(!prev) return prev;
-      const nd=JSON.parse(JSON.stringify(prev));
-      nd.rows[rowIdx][field]=value;
-      if(field==="confirmed") nd.rows[rowIdx].updatedByProducer=value;
-      setSaving(true);
-      fbSave(currentPid, year, nd).finally(()=>setSaving(false));
-      return nd;
+      return {...prev,rows:newRows,updatedByProducer:true};
     });
-  },[currentPid, year]);
+  },[producerData]);
 
-  const setJaCell = useCallback(async(pid,rowIdx,field,value)=>{
+  const setJaCell = useCallback((pid,rowIdx,fld,val)=>{
     setAllProducers(prev=>{
-      if(!prev[pid]) return prev;
-      const nd=JSON.parse(JSON.stringify(prev));
-      nd[pid].rows[rowIdx][field]=value;
+      const newProducers={...prev};
+      const newRows=[...(newProducers[pid]?.rows||makeEmptyRows())];
+      newRows[rowIdx][fld]=val;
+      if(fld==="seedDate"){
+        const h1=newRows[rowIdx].harvest1;
+        const target=computeTarget(h1);
+        const seedDoy=mdToDayOfYear(val.slice(5).replace("-","/"));
+        const targetDoy=mdToDayOfYear(target);
+        if(seedDoy!==null&&targetDoy!==null&&Math.abs(seedDoy-targetDoy)>7){
+          setDateConfirm({pid,rowIdx,newVal:val,diff:seedDoy-targetDoy,isJA:true});
+          return prev;
+        }
+      }
+      newProducers[pid]={...newProducers[pid],rows:newRows};
+      return newProducers;
+    });
+  },[allProducers]);
+
+  const openModal = useCallback((rowIdx,fld,label,unit,maxBase,warnMsg,allowHyphen,isJA,pid)=>{
+    setModal({rowIdx,fld,label,unit,maxBase,warnMsg,allowHyphen,isJA,pid});
+  },[]);
+
+  const confirmModal = useCallback((val)=>{
+    if(modal.isJA) setJaCell(modal.pid,modal.rowIdx,modal.fld,val);
+    else setCell(modal.rowIdx,modal.fld,val);
+    setModal(null);
+  },[modal,setCell,setJaCell]);
+
+  const requestSeedDate = useCallback((rowIdx,val,isJA,pid)=>{
+    if(isJA) setJaCell(pid,rowIdx,"seedDate",val);
+    else setCell(rowIdx,"seedDate",val);
+  },[setCell,setJaCell]);
+
+  useEffect(()=>{
+    if(producerData&&producerData.updatedByProducer){
       setSaving(true);
-      fbSave(pid, year, nd[pid]).finally(()=>setSaving(false));
-      return nd;
+      fbSave(currentPid,year,producerData).then(()=>{
+        setSaving(false);
+        setProducerData(prev=>({...prev,updatedByProducer:false}));
+      });
+    }
+  },[producerData,currentPid,year]);
+
+  useEffect(()=>{
+    if(role==="ja"){
+      setSaving(true);
+      fbLoadAll(year).then(data=>{
+        setAllProducers(data);
+        setSaving(false);
+      });
+    }
+  },[role,year]);
+
+  useEffect(()=>{
+    auth.onAuthStateChanged(user=>{
+      if(user){
+        setCurrentPid(user.uid);
+        fbLoadUsers().then(users=>{
+          const u=users[user.uid];
+          if(u?.role==="ja"){
+            setRole("ja");
+          } else {
+            setRole("producer");
+            setProducerName(u?.name||"不明な生産者");
+            fbLoad(user.uid,year).then(data=>{
+              setProducerData(data||{rows:makeEmptyRows()});
+            });
+          }
+        });
+      } else {
+        setRole(null);
+        setCurrentPid(null);
+        setProducerData(null);
+      }
+      setFbReady(true);
     });
   },[year]);
 
-  const requestSeedDate=(rowIdx,newVal,isJA,pid)=>{
-    const rows = isJA ? allProducers[pid]?.rows : producerData?.rows;
-    const row = rows?.[rowIdx];
-    if(!row||!newVal||!row.target){ isJA?setJaCell(pid,rowIdx,"seedDate",newVal):setCell(rowIdx,"seedDate",newVal); return; }
-    const tParts=row.target.split("/"); if(tParts.length!==2){isJA?setJaCell(pid,rowIdx,"seedDate",newVal):setCell(rowIdx,"seedDate",newVal);return;}
-    const dParts=newVal.split("-"); if(dParts.length!==3){isJA?setJaCell(pid,rowIdx,"seedDate",newVal):setCell(rowIdx,"seedDate",newVal);return;}
-    const tDate=new Date(parseInt(dParts[0]),parseInt(tParts[0])-1,parseInt(tParts[1]));
-    const aDate=new Date(parseInt(dParts[0]),parseInt(dParts[1])-1,parseInt(dParts[2]));
-    const diff=Math.round((aDate-tDate)/86400000);
-    if(Math.abs(diff)>=10){ setDateConfirm({rowIdx,newVal,diff,isJA,pid}); }
-    else { isJA?setJaCell(pid,rowIdx,"seedDate",newVal):setCell(rowIdx,"seedDate",newVal); }
-  };
+  const handleLogin = useCallback(async ()=>{
+    setLoading(true);
+    setLoginError("");
+    try {
+      await auth.signInWithEmailAndPassword(loginId,loginPw);
+    } catch(e) {
+      setLoginError("ログイン失敗: "+e.message);
+    }
+    setLoading(false);
+  },[loginId,loginPw]);
 
-  const openModal=(rowIdx,field,label,unit,maxBase,warnMsg,allowHyphen=false,isJA=false,pid=null)=>
-    setModal({rowIdx,field,label,unit,maxBase,warnMsg,allowHyphen,isJA,pid});
+  const handleLogout = useCallback(()=>{
+    auth.signOut();
+  },[]);
 
-  const confirmModal=val=>{
-    if(modal){ modal.isJA?setJaCell(modal.pid,modal.rowIdx,modal.field,val):setCell(modal.rowIdx,modal.field,val); }
-    setModal(null);
-  };
-
-  const modalCurrentVal=()=>{
-    if(!modal) return "";
-    if(modal.isJA) return allProducers[modal.pid]?.rows[modal.rowIdx]?.[modal.field]||"";
-    return producerData?.rows[modal.rowIdx]?.[modal.field]||"";
-  };
-
-  const exportExcel=(pid)=>{
-    const XLSX=window.XLSX; if(!XLSX) return;
-    const p=allProducers[pid]; if(!p) return;
-    const rows=p.rows.map(r=>({
-      "播種回数":r.no,"収穫指定日1":r.harvest1,"収穫指定日2":r.harvest2,"播種目安":r.target,
-      "播種日":r.seedDate,"面積(a)":r.area,"品種":r.crop,"マルチ":r.mulch,
-      "株間(cm)":r.spacing,"圃場番号":r.field,"備考":r.note,"自己評価":r.selfEval,"状態":r.confirmed?"入力完了":""
-    }));
-    const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"播種報告");
-    XLSX.writeFile(wb,`${p.name}_${year}_播種報告.xlsx`);
-  };
-
-  const exportAll=()=>{
-    const XLSX=window.XLSX; if(!XLSX) return;
-    const wb=XLSX.utils.book_new();
+  const exportAll = useCallback(()=>{
+    const ws_data = [["生産者名","回数","指定日1","指定日2","播種目安","播種日","面積(a)","品種","マルチ","株間(cm)","圃場","備考","自己評価","完了","生産者更新"]];
     Object.entries(allProducers).forEach(([pid,p])=>{
-      const rows=p.rows.map(r=>({
-        "播種回数":r.no,"収穫指定日1":r.harvest1,"収穫指定日2":r.harvest2,"播種目安":r.target,
-        "播種日":r.seedDate,"面積(a)":r.area,"品種":r.crop,"マルチ":r.mulch,
-        "株間(cm)":r.spacing,"圃場番号":r.field,"備考":r.note,"自己評価":r.selfEval,"状態":r.confirmed?"入力完了":""
-      }));
-      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),(p.name||pid).slice(0,28));
+      const producerName = p.name || pid;
+      (p.rows||[]).forEach(r=>{
+        ws_data.push([
+          producerName, r.no, r.harvest1, r.harvest2, r.target, r.seedDate, r.area, r.crop, r.mulch, r.spacing, r.field, r.note, r.selfEval, r.confirmed?"はい":"いいえ", r.updatedByProducer?"はい":"いいえ"
+        ]);
+      });
     });
-    XLSX.writeFile(wb,`JA_全生産者_${year}_播種報告.xlsx`);
-  };
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "播種報告");
+    XLSX.writeFile(wb, `播種報告_${year}.xlsx`);
+  },[allProducers,year]);
 
-  // 読み込み中
-  if(!fbReady) return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-teal-100 flex items-center justify-center">
-      <div className="text-center text-gray-500">
-        <div className="spin text-4xl mb-3">⟳</div>
-        <div>読み込み中...</div>
-      </div>
-    </div>
-  );
+  if(!fbReady) return <div className="min-h-screen flex items-center justify-center bg-gray-100"><div className="spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div></div>;
 
-  // ログイン画面
   if(!role) return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md border-t-8 border-emerald-500">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center mb-4 relative">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-b from-emerald-50 to-white shadow-inner flex items-center justify-center border-2 border-emerald-200">
-              <svg width="56" height="72" viewBox="0 0 56 72" xmlns="http://www.w3.org/2000/svg">
-                <path d="M28 18 C20 8,8 4,4 0 C8 10,14 16,22 20 Z" fill="#22c55e"/>
-                <path d="M28 18 C36 8,48 4,52 0 C48 10,42 16,34 20 Z" fill="#16a34a"/>
-                <path d="M16 20 Q14 45,22 64 Q25 70,28 70 Q31 70,34 64 Q42 45,40 20 Q34 14,28 14 Q22 14,16 20 Z" fill="#fafaf9"/>
-                <path d="M16 20 Q14 45,22 64 Q24 68,26 69 Q20 50,21 24 Q18 22,16 20 Z" fill="#e7e5e4"/>
-              </svg>
-            </div>
-            <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white rounded-full w-11 h-11 flex items-center justify-center shadow-lg border-2 border-white">
-              <span className="text-[11px] font-black leading-none">JA</span>
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-800 leading-snug">共選大根<br/>播種報告システム</h1>
-          <p className="text-gray-500 text-sm mt-1">Firebase版 V1</p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
+        <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">ログイン</h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ID</label>
-            <input className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="loginId">メールアドレス</label>
+            <input type="email" id="loginId" className="shadow appearance-none border rounded-lg w-full py-2.5 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               value={loginId} onChange={e=>setLoginId(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()}
-              placeholder="例: ja または p001"/>
+              placeholder="メールアドレス"/>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
-            <input type="password" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="loginPw">パスワード</label>
+            <input type="password" id="loginPw" className="shadow appearance-none border rounded-lg w-full py-2.5 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline"
               value={loginPw} onChange={e=>setLoginPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()}
               placeholder="パスワード"/>
           </div>
@@ -721,83 +710,72 @@ function App() {
                       className="bg-white rounded-xl shadow p-4 text-left hover:shadow-md border border-gray-100 relative">
                       {newCount>0&&<span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">NEW {newCount}</span>}
                       <p className="font-semibold text-gray-800">{p.name}</p>
-                      <p className="text-xs text-gray-400">ID: {pid}</p>
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="flex-1 bg-gray-100 rounded-full h-2">
-                          <div className="bg-emerald-400 h-2 rounded-full" style={{width:`${(filled/25)*100}%`}}></div>
-                        </div>
-                        <span className="text-xs text-gray-500">{filled}/25</span>
-                      </div>
+                      <p className="text-xs text-gray-500">{filled}件入力済み</p>
                     </button>
                   );
                 })}
-                {Object.keys(allProducers).length===0&&(
-                  <div className="col-span-3 text-center text-gray-400 py-12">
-                    <p>まだ生産者がログインしていません</p>
-                    <p className="text-xs mt-2">生産者がログインするとここにデータが表示されます</p>
-                  </div>
-                )}
               </div>
             </>
           ):(
-            <div>
-              <button onClick={()=>setSelectedPid(null)} className="text-blue-600 text-sm mb-3 hover:underline">← 一覧へ戻る</button>
-              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                <h2 className="font-bold text-lg">{allProducers[selectedPid]?.name} さん</h2>
-                <button onClick={()=>exportExcel(selectedPid)} className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm px-3 py-1.5 rounded">Excel出力</button>
+            <div className="bg-white rounded-xl shadow p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-gray-800">{allProducers[selectedPid]?.name} さんの播種データ</h3>
+                <button onClick={()=>setSelectedPid(null)} className="text-sm text-blue-600 hover:underline">一覧に戻る</button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-xs bg-white rounded-lg shadow border-collapse" style={{lineHeight:1.1}}>
+                <table className="w-full text-[10px] border-collapse" style={{lineHeight:1.1}}>
                   <thead>
                     <tr className="bg-blue-100 text-blue-900">
-                      {["回数","指定日1","指定日2","播種目安","メモ","播種日","面積","品種","マルチ","株間","圃場","備考","状態"].map(h=>(
-                        <th key={h} className="p-0.5 border text-[10px]">{h}</th>
-                      ))}
+                      <th className="p-1 border">回数</th>
+                      <th className="p-1 border">指定日</th>
+                      <th className="p-1 border">播種目安</th>
+                      <th className="p-1 border">播種日</th>
+                      <th className="p-1 border">面積(a)</th>
+                      <th className="p-1 border">品種</th>
+                      <th className="p-1 border">マルチ</th>
+                      <th className="p-1 border">株間(cm)</th>
+                      <th className="p-1 border">圃場</th>
+                      <th className="p-1 border">備考</th>
+                      <th className="p-1 border">状態</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(allProducers[selectedPid]?.rows||[]).map((row,idx)=>(
-                      <tr key={row.no} className={row.confirmed?"bg-blue-50":row.seedDate?"bg-emerald-50":"bg-white"}>
-                        <td className="p-0.5 border text-center font-semibold text-[11px]">{row.no}</td>
-                        <td className="p-0.5 border text-center text-[9px]">{row.harvest1||"-"}</td>
-                        <td className="p-0.5 border text-center text-[9px]">{row.harvest2||"-"}</td>
-                        <td className="p-0.5 border text-center text-[9px]">{row.target||"-"}</td>
-                        <td className="p-0.5 border bg-violet-50">
-                          <input type="text"
-                            className="w-full border-0 text-[10px] bg-transparent focus:outline-none text-violet-700 px-0.5"
-                            value={row.jaTag||""} onChange={e=>setJaCell(selectedPid,idx,"jaTag",e.target.value)} placeholder="メモ"/>
-                        </td>
-                        <td className="p-0.5 border bg-amber-50">
-                          <DatePickerButton value={row.seedDate} disabled={row.confirmed} compact target={row.target}
+                    {(allProducers[selectedPid]?.rows||makeEmptyRows()).map((row,idx)=>(
+                      <tr key={row.no} className="hover:bg-gray-50">
+                        <td className="p-0.5 border text-center font-bold">{row.no}</td>
+                        <td className="p-0.5 border text-center text-[9px]">{row.harvest1}<br/>{row.harvest2}</td>
+                        <td className="p-0.5 border text-center text-[9px]">{row.target}</td>
+                        <td className="p-0.5 border bg-emerald-50">
+                          <DatePickerButton compact value={row.seedDate} disabled={row.confirmed} target={row.target}
                             onChange={v=>requestSeedDate(idx,v,true,selectedPid)}/>
                         </td>
-                        <td className="p-0.5 border bg-amber-50">
+                        <td className="p-0.5 border bg-emerald-50">
                           <button disabled={row.confirmed}
                             onClick={()=>openModal(idx,"area","面積","a",90,"90aを超えます",false,true,selectedPid)}
-                            className={"w-full border-2 rounded px-1 py-1 text-[10px] text-center "+(row.confirmed?"border-gray-200 bg-gray-50":"border-amber-200 bg-white hover:bg-amber-100")}>
+                            className={"w-full border-2 rounded px-1 py-1 text-[10px] text-center "+(row.confirmed?"border-gray-200 bg-gray-50":"border-emerald-200 bg-white hover:bg-emerald-100")}>
                             {row.area?`${row.area}a`:<span className="text-gray-300">入力</span>}
                           </button>
                         </td>
-                        <td className="p-0.5 border bg-amber-50">
+                        <td className="p-0.5 border bg-emerald-50">
                           <select disabled={row.confirmed}
-                            className="w-full border-0 text-[10px] bg-transparent focus:outline-none"
+                            className={"w-full border-2 rounded px-1 py-1 text-[10px] "+(row.confirmed?"border-gray-200 bg-gray-50":"border-emerald-200 bg-white hover:bg-emerald-100")}
                             value={row.crop} onChange={e=>setJaCell(selectedPid,idx,"crop",e.target.value)}>
-                            <option value=""></option>
-                            {CROP_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
+                            <option value="">--</option>
+                            {CROP_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
                           </select>
                         </td>
-                        <td className="p-0.5 border bg-amber-50">
+                        <td className="p-0.5 border bg-emerald-50">
                           <select disabled={row.confirmed}
-                            className="w-full border-0 text-[10px] bg-transparent focus:outline-none"
+                            className={"w-full border-2 rounded px-1 py-1 text-[10px] "+(row.confirmed?"border-gray-200 bg-gray-50":"border-emerald-200 bg-white hover:bg-emerald-100")}
                             value={row.mulch} onChange={e=>setJaCell(selectedPid,idx,"mulch",e.target.value)}>
-                            <option value=""></option>
-                            {MULCH_OPTIONS.map(m=><option key={m} value={m}>{m}</option>)}
+                            <option value="">--</option>
+                            {MULCH_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
                           </select>
                         </td>
-                        <td className="p-0.5 border bg-amber-50">
+                        <td className="p-0.5 border bg-emerald-50">
                           <button disabled={row.confirmed}
                             onClick={()=>openModal(idx,"spacing","株間","cm",30,"30cmを超えます",false,true,selectedPid)}
-                            className={"w-full border-2 rounded px-1 py-1 text-[10px] text-center "+(row.confirmed?"border-gray-200 bg-gray-50":"border-amber-200 bg-white hover:bg-amber-100")}>
+                            className={"w-full border-2 rounded px-1 py-1 text-[10px] text-center "+(row.confirmed?"border-gray-200 bg-gray-50":"border-emerald-200 bg-white hover:bg-emerald-100")}>
                             {row.spacing?`${row.spacing}cm`:<span className="text-gray-300">入力</span>}
                           </button>
                         </td>
@@ -837,7 +815,7 @@ function App() {
           )}
         </div>
       )}
-      {modal&&<NumPadModal label={modal.label} unit={modal.unit} value={modalCurrentVal()} maxBase={modal.maxBase} warnMsg={modal.warnMsg} allowHyphen={modal.allowHyphen} onClose={()=>setModal(null)} onConfirm={confirmModal}/>}
+      {modal&&<NumPadModal label={modal.label} unit={modal.unit} value={modalCurrentVal()} maxBase={modal.maxBase} warnMsg={modal.warnMsg} allowHyphen={modal.allowHyphen} onClose={()=>setModal(null)} onConfirm={()=>{if(modal.isJA)setJaCell(modal.pid,modal.rowIdx,modal.fld,val);else setCell(modal.rowIdx,modal.fld,val);setModal(null);}}/>}
       {dateConfirm&&<DateConfirmModal diff={dateConfirm.diff} onClose={()=>setDateConfirm(null)} onConfirm={()=>{if(dateConfirm.isJA)setJaCell(dateConfirm.pid,dateConfirm.rowIdx,"seedDate",dateConfirm.newVal);else setCell(dateConfirm.rowIdx,"seedDate",dateConfirm.newVal);setDateConfirm(null);}}/>}
     </div>
   );
