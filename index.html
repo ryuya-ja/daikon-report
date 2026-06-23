@@ -7,7 +7,7 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <!-- Firebase SDKs (UMD版・importなし) -->
@@ -37,7 +37,7 @@
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useCallback } = React;
-const { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } = Recharts;
+
 
 const CROP_OPTIONS = ["T452","蒼の砦(NR335)","晩々G","春ひびき","夏つかさ旬","NIKURA大根","夏つかさ","夏つかさ快","T770","秋こまち"];
 const MULCH_OPTIONS = ["透明","銀ネズ","ハイデン","白","シルバー","崩壊マルチ","露地(無記入)"];
@@ -231,17 +231,29 @@ function StatsView({allProducers}) {
   const [selMonth,setSelMonth]=useState(null);
   const curMonth=selMonth||(months[0]||5);
   const monthRows=rows.filter(r=>r.month===curMonth);
-  const daysInMonth=new Date(2025,curMonth,0).getDate();
-  const dayMap={};
-  for(let d=1;d<=daysInMonth;d++) dayMap[`${curMonth}/${d}`]={label:`${curMonth}/${d}`,_day:d};
-  monthRows.forEach(r=>{ const k=`${r.month}/${r.day}`; const c=r.crop||"未選択"; dayMap[k][c]=(dayMap[k][c]||0)+r.area; });
-  const chartData=Object.values(dayMap).sort((a,b)=>a._day-b._day);
+
+  // SVGグラフ用データ
+  const cropTotals={};
+  monthRows.forEach(r=>{ const c=r.crop||"未選択"; cropTotals[c]=(cropTotals[c]||0)+(parseFloat(r.area)||0); });
+  const maxArea=Math.max(1,...Object.values(cropTotals));
+  const W=320, H=180, pad=40;
+
+  // 旬別集計
+  const decadeMap={};
+  rows.forEach(r=>{
+    const key=`${r.month}月${r.decade}`;
+    decadeMap[key]=(decadeMap[key]||0)+r.area;
+  });
+
   if(rows.length===0) return <div className="p-8 text-center text-gray-400">播種データがまだありません</div>;
+
+  const barW=Math.min(28, (W-pad*2)/Math.max(1,allCrops.length)-4);
+
   return (
     <div className="p-4 space-y-6">
       <div className="bg-white rounded-xl shadow p-4">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h3 className="font-bold text-gray-800">播種日別 面積グラフ</h3>
+          <h3 className="font-bold text-gray-800">品種別 面積（{curMonth}月）</h3>
           <div className="flex gap-1 flex-wrap">
             {months.map(m=>(
               <button key={m} onClick={()=>setSelMonth(m)}
@@ -251,15 +263,56 @@ function StatsView({allProducers}) {
             ))}
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={chartData} margin={{top:4,right:8,left:0,bottom:4}}>
-            <XAxis dataKey="label" tick={{fontSize:9}} interval={0} angle={-45} textAnchor="end" height={50}/>
-            <YAxis unit="a" tick={{fontSize:11}} width={42}/>
-            <Tooltip formatter={(v,n)=>[`${v}a`,n]}/>
-            <Legend wrapperStyle={{fontSize:11}}/>
-            {allCrops.map((c,i)=>(<Bar key={c} dataKey={c} stackId="a" fill={CROP_COLORS[i%CROP_COLORS.length]} name={c}/>))}
-          </BarChart>
-        </ResponsiveContainer>
+        <svg width="100%" viewBox={`0 0 ${W} ${H+60}`} style={{overflow:"visible"}}>
+          {/* Y軸目盛り */}
+          {[0,0.25,0.5,0.75,1].map(t=>{
+            const y=pad+(H-pad*0.5)*(1-t);
+            return <g key={t}>
+              <line x1={pad} y1={y} x2={W-10} y2={y} stroke="#e5e7eb" strokeWidth="1"/>
+              <text x={pad-4} y={y+4} textAnchor="end" fontSize="9" fill="#9ca3af">{Math.round(maxArea*t)}a</text>
+            </g>;
+          })}
+          {/* バー */}
+          {allCrops.map((c,i)=>{
+            const val=cropTotals[c]||0;
+            const bh=((val/maxArea)*(H-pad*0.5));
+            const x=pad+(i*(barW+4));
+            const y=pad+(H-pad*0.5)-bh;
+            return <g key={c}>
+              <rect x={x} y={y} width={barW} height={bh} fill={CROP_COLORS[i%CROP_COLORS.length]} rx="2"/>
+              {val>0&&<text x={x+barW/2} y={y-3} textAnchor="middle" fontSize="8" fill="#374151">{val}a</text>}
+              <text x={x+barW/2} y={H+pad+8} textAnchor="middle" fontSize="7" fill="#6b7280"
+                transform={`rotate(-35,${x+barW/2},${H+pad+8})`}>{c.slice(0,6)}</text>
+            </g>;
+          })}
+          {/* X軸 */}
+          <line x1={pad} y1={pad+(H-pad*0.5)} x2={W-10} y2={pad+(H-pad*0.5)} stroke="#d1d5db" strokeWidth="1"/>
+        </svg>
+      </div>
+
+      {/* 旬別集計テーブル */}
+      <div className="bg-white rounded-xl shadow p-4 overflow-x-auto">
+        <h3 className="font-bold text-gray-800 mb-3">月旬別 面積合計</h3>
+        <table className="text-xs border-collapse w-full">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border p-2 text-left">月旬</th>
+              <th className="border p-2 text-right">面積(a)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(decadeMap).sort().map(([k,v])=>(
+              <tr key={k} className="hover:bg-gray-50">
+                <td className="border p-2">{k}</td>
+                <td className="border p-2 text-right font-bold">{v}a</td>
+              </tr>
+            ))}
+            <tr className="bg-blue-50 font-bold">
+              <td className="border p-2">合計</td>
+              <td className="border p-2 text-right">{rows.reduce((s,r)=>s+r.area,0)}a</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
