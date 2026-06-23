@@ -4,22 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>共選大根 播種報告システム</title>
-<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 <style>
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;}
   .spin{animation:spin 1s linear infinite;display:inline-block;}
   @keyframes spin{to{transform:rotate(360deg);}}
+  input,select,button{font-family:inherit;}
 </style>
 </head>
 <body>
-<div id="root"><div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#6b7280;font-size:18px;">読み込み中...</div></div>
+<div id="root"><div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:18px;color:#6b7280;">読み込み中...</div></div>
 
-<!-- Step1: Firebase UMD (importなし) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-<!-- Step2: Firebase初期化 -->
 <script>
 firebase.initializeApp({
   apiKey:"AIzaSyB2kLvO1WZBA4xGfPop2nWC9oaX6R5cS3A",
@@ -29,23 +27,16 @@ firebase.initializeApp({
   messagingSenderId:"1081921361931",
   appId:"1:1081921361931:web:0fa19be5d0a6c7ad904f0e"
 });
-var AUTH = firebase.auth();
-var DB = firebase.firestore();
+var AUTH=firebase.auth();
+var DB=firebase.firestore();
 </script>
-
-<!-- Step3: React UMD -->
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-
-<!-- Step4: XLSX -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-<!-- Step5: Babel (最後に読み込む) -->
 <script src="https://unpkg.com/@babel/standalone@7.23.2/babel.min.js"></script>
 
-<!-- Step6: アプリ本体 (type=text/babelのみ・importなし) -->
 <script type="text/babel">
-const {useState,useEffect,useCallback} = React;
+const {useState,useEffect,useCallback}=React;
 
 const CROP_OPTIONS=["T452","蒼の砦(NR335)","晩々G","春ひびき","夏つかさ旬","NIKURA大根","夏つかさ","夏つかさ快","T770","秋こまち"];
 const MULCH_OPTIONS=["透明","銀ネズ","ハイデン","白","シルバー","崩壊マルチ","露地(無記入)"];
@@ -61,11 +52,6 @@ function makeEmptyRows(){
     confirmed:false,updatedByProducer:false
   }));
 }
-function mdToDoy(md){
-  const p=String(md).split("/");if(p.length!==2)return null;
-  const mo=parseInt(p[0],10),d=parseInt(p[1],10);if(isNaN(mo)||isNaN(d))return null;
-  return Math.round((new Date(2025,mo-1,d)-new Date(2025,0,1))/86400000);
-}
 function computeTarget(h1){
   if(!h1)return"";
   const p=String(h1).split("/");if(p.length!==2)return"";
@@ -75,7 +61,6 @@ function computeTarget(h1){
 }
 function getDecade(d){if(d<=10)return"上旬";if(d<=20)return"中旬";return"下旬";}
 
-// Firebase操作
 async function fbSave(pid,year,data){await DB.collection("reports").doc(year+"_"+pid).set(data);}
 async function fbLoad(pid,year){const s=await DB.collection("reports").doc(year+"_"+pid).get();return s.exists?s.data():null;}
 async function fbLoadAll(year){
@@ -95,12 +80,13 @@ function DateBtn({value,disabled,onChange,compact,target}){
     const p=String(target).split("/");
     if(p.length===2){const mo=parseInt(p[0],10),d=parseInt(p[1],10);if(!isNaN(mo)&&!isNaN(d)){const yr=new Date().getFullYear();guess=`${yr}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`;}}
   }
-  const base=compact?"w-full border-2 rounded px-1 py-1 text-[10px] text-center":"w-full border-2 rounded-lg px-1.5 py-1.5 text-xs text-center";
-  const col=disabled?"border-gray-200 bg-gray-50 text-gray-400":"border-emerald-300 bg-white hover:border-emerald-500";
+  const baseStyle={width:"100%",border:"2px solid",borderRadius:compact?"4px":"8px",padding:compact?"4px 2px":"6px",fontSize:compact?"10px":"12px",textAlign:"center",position:"relative",cursor:disabled?"default":"pointer",borderColor:disabled?"#e5e7eb":"#6ee7b7",background:disabled?"#f9fafb":"white",color:disabled?"#9ca3af":"#111827",boxSizing:"border-box"};
   return(
-    <div className="relative w-full">
-      <div className={base+" "+col}>{value?<span className="font-bold">{value.slice(5).replace("-","/")}</span>:<span className="text-gray-300">タップ</span>}</div>
-      <input type="date" disabled={disabled} defaultValue={guess} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-default" value={value||""} onChange={e=>onChange(e.target.value)}/>
+    <div style={{position:"relative",width:"100%"}}>
+      <div style={baseStyle}>{value?<b>{value.slice(5).replace("-","/")}</b>:<span style={{color:"#d1d5db"}}>タップ</span>}</div>
+      <input type="date" disabled={disabled} defaultValue={guess}
+        style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",opacity:0,cursor:disabled?"default":"pointer"}}
+        value={value||""} onChange={e=>onChange(e.target.value)}/>
     </div>
   );
 }
@@ -126,22 +112,32 @@ function NumPad({label,unit,value,maxBase,warnMsg,allowHyphen,onClose,onConfirm}
   };
   const digits=allowHyphen?["1","2","3","4","5","6","7","8","9","-","0","⌫"]:["1","2","3","4","5","6","7","8","9",".","0","⌫"];
   return(
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-30">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xs p-4">
-        <div className="flex items-center justify-between mb-2"><h3 className="font-bold">{label}を入力</h3><button onClick={onClose} className="text-gray-400 text-xl px-2">×</button></div>
-        <div className="bg-gray-50 border-2 rounded-xl px-4 py-4 mb-3 text-right"><span className="text-3xl font-bold">{val||"0"}</span>{unit&&<span className="text-lg text-gray-500 ml-1">{unit}</span>}</div>
-        {warned&&<div className="bg-amber-50 border border-amber-300 rounded-lg p-2 mb-3 text-xs text-amber-800">⚠️ {warnMsg}<br/><span className="font-bold">もう一度「確定」を押してください。</span></div>}
-        <div className="grid grid-cols-3 gap-2 mb-3">
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:30}}>
+      <div style={{background:"white",borderRadius:"16px 16px 0 0",padding:"16px",width:"100%",maxWidth:"360px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
+          <b style={{fontSize:"16px"}}>{label}を入力</b>
+          <button onClick={onClose} style={{fontSize:"20px",color:"#9ca3af",background:"none",border:"none",cursor:"pointer"}}>×</button>
+        </div>
+        <div style={{background:"#f9fafb",border:"2px solid #e5e7eb",borderRadius:"12px",padding:"16px",marginBottom:"12px",textAlign:"right"}}>
+          <span style={{fontSize:"32px",fontWeight:"bold"}}>{val||"0"}</span>
+          {unit&&<span style={{fontSize:"18px",color:"#6b7280",marginLeft:"4px"}}>{unit}</span>}
+        </div>
+        {warned&&<div style={{background:"#fffbeb",border:"1px solid #fcd34d",borderRadius:"8px",padding:"8px",marginBottom:"12px",fontSize:"12px",color:"#92400e"}}>⚠️ {warnMsg}<br/><b>もう一度「確定」を押してください。</b></div>}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"12px"}}>
           {digits.map(d=>(
             <button key={d} onClick={()=>d==="⌫"?setVal(p=>p.slice(0,-1)):press(d)}
-              className={"rounded-xl py-4 text-xl font-semibold "+(d==="-"?"bg-orange-100 text-orange-700":d==="."?"bg-sky-100 text-sky-700":d==="⌫"?"bg-rose-50 text-rose-500":"bg-gray-100 text-gray-700")}>{d}</button>
+              style={{borderRadius:"12px",padding:"16px 0",fontSize:"20px",fontWeight:"600",border:"none",cursor:"pointer",
+                background:d==="-"?"#fff7ed":d==="."?"#f0f9ff":d==="⌫"?"#fff1f2":"#f3f4f6",
+                color:d==="-"?"#c2410c":d==="."?"#0369a1":d==="⌫"?"#f43f5e":"#374151"}}>{d}</button>
           ))}
         </div>
-        <div className="flex gap-2 mb-2">
-          <button onClick={()=>setVal("")} className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-500 text-sm">クリア</button>
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-600 text-sm">キャンセル</button>
+        <div style={{display:"flex",gap:"8px",marginBottom:"8px"}}>
+          <button onClick={()=>setVal("")} style={{flex:1,padding:"10px",borderRadius:"8px",border:"1px solid #d1d5db",background:"white",cursor:"pointer",color:"#6b7280"}}>クリア</button>
+          <button onClick={onClose} style={{flex:1,padding:"10px",borderRadius:"8px",border:"1px solid #d1d5db",background:"white",cursor:"pointer",color:"#374151"}}>キャンセル</button>
         </div>
-        <button onClick={submit} className={"w-full py-4 rounded-xl text-white text-lg font-bold "+(warned?"bg-amber-500":"bg-blue-600")}>{warned?"それでも確定":"確 定"}</button>
+        <button onClick={submit} style={{width:"100%",padding:"16px",borderRadius:"12px",border:"none",background:warned?"#f59e0b":"#2563eb",color:"white",fontSize:"18px",fontWeight:"bold",cursor:"pointer"}}>
+          {warned?"それでも確定":"確 定"}
+        </button>
       </div>
     </div>
   );
@@ -149,13 +145,15 @@ function NumPad({label,unit,value,maxBase,warnMsg,allowHyphen,onClose,onConfirm}
 
 function DateWarn({diff,onClose,onConfirm}){
   return(
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-30 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-5">
-        <h3 className="font-bold mb-2">播種日を確認</h3>
-        <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 mb-4 text-sm text-amber-800">⚠️ 播種目安より<span className="font-bold">{Math.abs(diff)}日{diff>0?"後":"前"}</span>の入力です。</div>
-        <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-gray-300 text-sm">修正する</button>
-          <button onClick={onConfirm} className="flex-1 py-2.5 rounded-lg bg-amber-500 text-white text-sm font-bold">このまま登録</button>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:30,padding:"16px"}}>
+      <div style={{background:"white",borderRadius:"16px",padding:"20px",width:"100%",maxWidth:"320px"}}>
+        <b style={{display:"block",marginBottom:"8px",fontSize:"16px"}}>播種日を確認</b>
+        <div style={{background:"#fffbeb",border:"1px solid #fcd34d",borderRadius:"8px",padding:"12px",marginBottom:"16px",fontSize:"14px",color:"#92400e"}}>
+          ⚠️ 播種目安より<b>{Math.abs(diff)}日{diff>0?"後":"前"}</b>の入力です。
+        </div>
+        <div style={{display:"flex",gap:"8px"}}>
+          <button onClick={onClose} style={{flex:1,padding:"10px",borderRadius:"8px",border:"1px solid #d1d5db",background:"white",cursor:"pointer"}}>修正する</button>
+          <button onClick={onConfirm} style={{flex:1,padding:"10px",borderRadius:"8px",border:"none",background:"#f59e0b",color:"white",fontWeight:"bold",cursor:"pointer"}}>このまま登録</button>
         </div>
       </div>
     </div>
@@ -170,39 +168,41 @@ function StatsView({all}){
     const dt=new Date(parseInt(pts[0]),parseInt(pts[1])-1,parseInt(pts[2]));
     rows.push({...r,area:parseFloat(r.area)||0,month:dt.getMonth()+1,day:dt.getDate(),decade:getDecade(dt.getDate())});
   }));
-  const decadeMap={};
-  rows.forEach(r=>{const k=`${r.month}月${r.decade}`;decadeMap[k]=(decadeMap[k]||0)+r.area;});
-  const cropMap={};
-  rows.forEach(r=>{const c=r.crop||"未選択";cropMap[c]=(cropMap[c]||0)+r.area;});
+  const decadeMap={};rows.forEach(r=>{const k=`${r.month}月${r.decade}`;decadeMap[k]=(decadeMap[k]||0)+r.area;});
+  const cropMap={};rows.forEach(r=>{const c=r.crop||"未選択";cropMap[c]=(cropMap[c]||0)+r.area;});
   const crops=Object.entries(cropMap).sort((a,b)=>b[1]-a[1]);
   const maxV=Math.max(1,...crops.map(c=>c[1]));
-  if(rows.length===0)return<div className="p-8 text-center text-gray-400">播種データがまだありません</div>;
+  if(rows.length===0)return<div style={{padding:"32px",textAlign:"center",color:"#9ca3af"}}>播種データがまだありません</div>;
   return(
-    <div className="p-4 space-y-6">
-      <div className="bg-white rounded-xl shadow p-4">
-        <h3 className="font-bold text-gray-800 mb-3">品種別 面積合計</h3>
-        <div className="space-y-2">
-          {crops.map(([c,v],i)=>(
-            <div key={c} className="flex items-center gap-2">
-              <div className="w-24 text-xs text-right text-gray-600 truncate">{c}</div>
-              <div className="flex-1 bg-gray-100 rounded-full h-6 relative">
-                <div className="h-6 rounded-full flex items-center pl-2" style={{width:`${(v/maxV)*100}%`,background:CROP_COLORS[i%CROP_COLORS.length]}}>
-                  <span className="text-white text-xs font-bold">{v}a</span>
-                </div>
+    <div style={{padding:"16px"}}>
+      <div style={{background:"white",borderRadius:"12px",boxShadow:"0 1px 4px rgba(0,0,0,0.08)",padding:"16px",marginBottom:"16px"}}>
+        <b style={{display:"block",marginBottom:"12px"}}>品種別 面積合計</b>
+        {crops.map(([c,v],i)=>(
+          <div key={c} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
+            <div style={{width:"80px",fontSize:"11px",textAlign:"right",color:"#374151",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{c}</div>
+            <div style={{flex:1,background:"#f3f4f6",borderRadius:"99px",height:"24px",overflow:"hidden"}}>
+              <div style={{height:"24px",borderRadius:"99px",background:CROP_COLORS[i%CROP_COLORS.length],width:`${(v/maxV)*100}%`,display:"flex",alignItems:"center",paddingLeft:"8px"}}>
+                <span style={{color:"white",fontSize:"11px",fontWeight:"bold"}}>{v}a</span>
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
-      <div className="bg-white rounded-xl shadow p-4 overflow-x-auto">
-        <h3 className="font-bold text-gray-800 mb-3">月旬別 面積合計</h3>
-        <table className="text-xs border-collapse w-full">
-          <thead><tr className="bg-gray-100"><th className="border p-2 text-left">月旬</th><th className="border p-2 text-right">面積</th></tr></thead>
+      <div style={{background:"white",borderRadius:"12px",boxShadow:"0 1px 4px rgba(0,0,0,0.08)",padding:"16px",overflowX:"auto"}}>
+        <b style={{display:"block",marginBottom:"12px"}}>月旬別 面積合計</b>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+          <thead><tr style={{background:"#f3f4f6"}}>
+            <th style={{border:"1px solid #e5e7eb",padding:"6px 10px",textAlign:"left"}}>月旬</th>
+            <th style={{border:"1px solid #e5e7eb",padding:"6px 10px",textAlign:"right"}}>面積</th>
+          </tr></thead>
           <tbody>
             {Object.entries(decadeMap).sort().map(([k,v])=>(
-              <tr key={k}><td className="border p-2">{k}</td><td className="border p-2 text-right font-bold">{v}a</td></tr>
+              <tr key={k}><td style={{border:"1px solid #e5e7eb",padding:"6px 10px"}}>{k}</td><td style={{border:"1px solid #e5e7eb",padding:"6px 10px",textAlign:"right",fontWeight:"bold"}}>{v}a</td></tr>
             ))}
-            <tr className="bg-blue-50 font-bold"><td className="border p-2">合計</td><td className="border p-2 text-right">{rows.reduce((s,r)=>s+r.area,0)}a</td></tr>
+            <tr style={{background:"#eff6ff",fontWeight:"bold"}}>
+              <td style={{border:"1px solid #e5e7eb",padding:"6px 10px"}}>合計</td>
+              <td style={{border:"1px solid #e5e7eb",padding:"6px 10px",textAlign:"right"}}>{rows.reduce((s,r)=>s+r.area,0)}a</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -238,12 +238,9 @@ function App(){
     try{
       const email=lid==="ja"?"ja@ja.local":`${lid}@daikon.local`;
       await AUTH.signInWithEmailAndPassword(email,lpw);
-      if(lid==="ja"){
-        setRole("ja");
-        setAll(await fbLoadAll(year));
-      } else {
-        const users=await fbLoadUsers();
-        const u=users[lid];
+      if(lid==="ja"){setRole("ja");setAll(await fbLoadAll(year));}
+      else{
+        const users=await fbLoadUsers();const u=users[lid];
         if(!u){setLerr("生産者情報が見つかりません");await AUTH.signOut();setLoading(false);return;}
         setRole("producer");setPid(lid);setPname(u.name||lid);
         const d=await fbLoad(lid,year);
@@ -264,8 +261,7 @@ function App(){
       const nd=JSON.parse(JSON.stringify(prev));
       nd.rows[rowIdx][field]=value;
       if(field==="confirmed")nd.rows[rowIdx].updatedByProducer=value;
-      setSaving(true);
-      fbSave(pid,year,nd).finally(()=>setSaving(false));
+      setSaving(true);fbSave(pid,year,nd).finally(()=>setSaving(false));
       return nd;
     });
   },[pid,year]);
@@ -275,8 +271,7 @@ function App(){
       if(!prev[p])return prev;
       const nd=JSON.parse(JSON.stringify(prev));
       nd[p].rows[rowIdx][field]=value;
-      setSaving(true);
-      fbSave(p,year,nd[p]).finally(()=>setSaving(false));
+      setSaving(true);fbSave(p,year,nd[p]).finally(()=>setSaving(false));
       return nd;
     });
   },[year]);
@@ -291,43 +286,49 @@ function App(){
     const td=new Date(parseInt(dp[0]),parseInt(tp[0])-1,parseInt(tp[1]));
     const ad=new Date(parseInt(dp[0]),parseInt(dp[1])-1,parseInt(dp[2]));
     const diff=Math.round((ad-td)/86400000);
-    if(Math.abs(diff)>=10)setDwarn({rowIdx,newVal,diff,isJA,p});
-    else go();
+    if(Math.abs(diff)>=10)setDwarn({rowIdx,newVal,diff,isJA,p});else go();
   };
 
-  const mval=()=>{if(!modal)return"";return modal.isJA?all[modal.p]?.rows[modal.rowIdx]?.[modal.field]||"":pdata?.rows[modal.rowIdx]?.[modal.field]||"";}
+  const mval=()=>{if(!modal)return"";return modal.isJA?all[modal.p]?.rows[modal.rowIdx]?.[modal.field]||"":pdata?.rows[modal.rowIdx]?.[modal.field]||"";};
 
   const exportAll=()=>{
     const X=window.XLSX;if(!X)return;
     const wb=X.utils.book_new();
     Object.entries(all).forEach(([p,d])=>{
-      const rows=d.rows.map(r=({"播種回数":r.no,"収穫指定日1":r.harvest1,"収穫指定日2":r.harvest2,"播種目安":r.target,"播種日":r.seedDate,"面積(a)":r.area,"品種":r.crop,"マルチ":r.mulch,"株間(cm)":r.spacing,"圃場番号":r.field,"備考":r.note,"状態":r.confirmed?"完了":""}));
+      const rows=d.rows.map(r=>({"播種回数":r.no,"収穫指定日1":r.harvest1,"収穫指定日2":r.harvest2,"播種目安":r.target,"播種日":r.seedDate,"面積(a)":r.area,"品種":r.crop,"マルチ":r.mulch,"株間(cm)":r.spacing,"圃場番号":r.field,"備考":r.note,"状態":r.confirmed?"完了":""}));
       X.utils.book_append_sheet(wb,X.utils.json_to_sheet(rows),(d.name||p).slice(0,28));
     });
     X.writeFile(wb,`JA_全生産者_${year}.xlsx`);
   };
 
-  if(!ready)return<div className="min-h-screen flex items-center justify-center"><div className="text-center text-gray-400"><div className="spin text-4xl mb-2">⟳</div><div>読み込み中...</div></div></div>;
+  const S={
+    card:{background:"white",borderRadius:"12px",boxShadow:"0 1px 4px rgba(0,0,0,0.08)",overflow:"hidden"},
+    btn:(bg,color)=>({padding:"10px 16px",borderRadius:"8px",border:"none",background:bg,color:color||"white",cursor:"pointer",fontSize:"14px",fontWeight:"600"}),
+    input:{width:"100%",border:"1px solid #d1d5db",borderRadius:"8px",padding:"10px 12px",fontSize:"14px",outline:"none",boxSizing:"border-box"},
+  };
+
+  if(!ready)return<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:"#6b7280",fontSize:"18px"}}><span className="spin" style={{marginRight:"8px"}}>⟳</span>読み込み中...</div>;
 
   if(!role)return(
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-teal-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md border-t-8 border-emerald-500">
-        <div className="text-center mb-6">
-          <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3 text-4xl">🌿</div>
-          <h1 className="text-2xl font-bold text-gray-800">共選大根<br/>播種報告システム</h1>
-          <p className="text-gray-400 text-sm mt-1">Firebase版 V1</p>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#f0fdf4,#ccfbf1)",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}}>
+      <div style={{background:"white",borderRadius:"24px",boxShadow:"0 8px 32px rgba(0,0,0,0.12)",padding:"32px",width:"100%",maxWidth:"400px",borderTop:"8px solid #10b981"}}>
+        <div style={{textAlign:"center",marginBottom:"24px"}}>
+          <div style={{width:"80px",height:"80px",borderRadius:"50%",background:"#f0fdf4",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px",fontSize:"40px"}}>🌿</div>
+          <h1 style={{fontSize:"22px",fontWeight:"bold",color:"#111827",margin:"0 0 4px"}}>共選大根<br/>播種報告システム</h1>
+          <p style={{color:"#9ca3af",fontSize:"13px",margin:0}}>Firebase版 V1</p>
         </div>
-        <div className="space-y-4">
-          <div><label className="block text-sm font-medium text-gray-700 mb-1">ID</label>
-            <input className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              value={lid} onChange={e=>setLid(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="例: ja または p001"/></div>
-          <div><label className="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
-            <input type="password" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              value={lpw} onChange={e=>setLpw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="パスワード"/></div>
-          {lerr&&<p className="text-red-500 text-sm">{lerr}</p>}
-          <button onClick={login} disabled={loading} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg">
-            {loading?"ログイン中...":"ログイン"}</button>
+        <div style={{marginBottom:"16px"}}>
+          <label style={{display:"block",fontSize:"14px",fontWeight:"500",color:"#374151",marginBottom:"6px"}}>ID</label>
+          <input style={S.input} value={lid} onChange={e=>setLid(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="例: ja または p001"/>
         </div>
+        <div style={{marginBottom:"16px"}}>
+          <label style={{display:"block",fontSize:"14px",fontWeight:"500",color:"#374151",marginBottom:"6px"}}>パスワード</label>
+          <input type="password" style={S.input} value={lpw} onChange={e=>setLpw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="パスワード"/>
+        </div>
+        {lerr&&<p style={{color:"#ef4444",fontSize:"13px",marginBottom:"12px"}}>{lerr}</p>}
+        <button onClick={login} disabled={loading} style={{width:"100%",padding:"12px",borderRadius:"10px",border:"none",background:loading?"#d1d5db":"#10b981",color:"white",fontSize:"16px",fontWeight:"600",cursor:loading?"default":"pointer"}}>
+          {loading?"ログイン中...":"ログイン"}
+        </button>
       </div>
     </div>
   );
@@ -337,80 +338,97 @@ function App(){
     const done=rows.filter(r=>r.confirmed).length;
     const total=rows.filter(r=>r.harvest1).length;
     return(
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-emerald-600 text-white px-4 py-3 sticky top-0 z-10 shadow">
-          <div className="flex items-center justify-between">
-            <div><h1 className="font-bold text-lg">{pname} さん</h1>
-              <p className="text-emerald-100 text-xs">{year}年度 {saving&&"💾 保存中..."}</p></div>
-            <button onClick={logout} className="bg-emerald-700 text-sm px-3 py-1.5 rounded">ログアウト</button>
+      <div style={{minHeight:"100vh",background:"#f9fafb"}}>
+        <div style={{background:"#059669",color:"white",padding:"12px 16px",position:"sticky",top:0,zIndex:10,boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
+            <div>
+              <div style={{fontWeight:"bold",fontSize:"18px"}}>{pname} さん</div>
+              <div style={{fontSize:"12px",opacity:0.85}}>{year}年度 {saving&&"💾 保存中..."}</div>
+            </div>
+            <button onClick={logout} style={{background:"rgba(0,0,0,0.2)",color:"white",border:"none",borderRadius:"6px",padding:"6px 12px",cursor:"pointer",fontSize:"13px"}}>ログアウト</button>
           </div>
-          <div className="mt-2">
-            <div className="text-xs text-emerald-100 mb-1">入力完了: {done}/{total}回</div>
-            <div className="w-full bg-emerald-800 rounded-full h-2"><div className="bg-white h-2 rounded-full" style={{width:`${(done/Math.max(1,total))*100}%`}}></div></div>
+          <div style={{fontSize:"12px",opacity:0.85,marginBottom:"4px"}}>入力完了: {done}/{total}回</div>
+          <div style={{background:"rgba(0,0,0,0.2)",borderRadius:"99px",height:"8px"}}>
+            <div style={{background:"white",height:"8px",borderRadius:"99px",width:`${(done/Math.max(1,total))*100}%`,transition:"width 0.3s"}}></div>
           </div>
-          <div className="flex gap-1 mt-3 -mb-3">
+          <div style={{display:"flex",gap:"4px",marginTop:"12px"}}>
             {[["input","✏️ 入力"],["list","📋 一覧"]].map(([k,l])=>(
-              <button key={k} onClick={()=>setPtab(k)} className={"flex-1 text-sm py-2 rounded-t-lg "+(ptab===k?"bg-gray-50 text-emerald-700":"bg-emerald-700 text-emerald-100")}>{l}</button>
+              <button key={k} onClick={()=>setPtab(k)} style={{flex:1,padding:"8px",borderRadius:"8px 8px 0 0",border:"none",cursor:"pointer",fontSize:"13px",fontWeight:"600",background:ptab===k?"#f9fafb":"rgba(0,0,0,0.15)",color:ptab===k?"#059669":"rgba(255,255,255,0.9)"}}>{l}</button>
             ))}
           </div>
         </div>
+
         {ptab==="input"?(
-          <div className="p-3 space-y-3 pb-8">
+          <div style={{padding:"12px",paddingBottom:"32px"}}>
             {rows.map((row,idx)=>{
               if(!row.harvest1&&!row.seedDate)return null;
               const open=expanded===row.no;
+              const cardBg=row.confirmed?"#eff6ff":row.seedDate?"#f0fdf4":"white";
+              const headerBg=row.confirmed?"#3b82f6":row.seedDate?"#059669":"#f3f4f6";
+              const headerColor=row.confirmed||row.seedDate?"white":"#374151";
               return(
-                <div key={row.no} className={"rounded-2xl border-2 overflow-hidden "+(row.confirmed?"border-blue-400 bg-blue-50":row.seedDate?"border-emerald-400 bg-emerald-50":"border-gray-200 bg-white")}>
-                  <button onClick={()=>setExpanded(open?null:row.no)}
-                    className={"w-full flex items-center justify-between px-4 py-3 "+(row.confirmed?"bg-blue-500 text-white":row.seedDate?"bg-emerald-500 text-white":"bg-gray-100 text-gray-700")}>
-                    <div className="flex items-center gap-3">
-                      <div className={"w-12 h-12 rounded-full flex items-center justify-center font-black text-xl "+(row.confirmed?"bg-white text-blue-600":row.seedDate?"bg-white text-emerald-600":"bg-emerald-500 text-white")}>{row.no}</div>
-                      <div><div className="text-xs opacity-80">収穫指定日</div>
-                        <div className="font-bold text-sm">{row.harvest1} / {row.harvest2}</div>
-                        <div className="text-xs opacity-80">播種目安: {row.target||"-"}</div></div>
+                <div key={row.no} style={{...S.card,marginBottom:"10px",border:`2px solid ${row.confirmed?"#93c5fd":row.seedDate?"#6ee7b7":"#e5e7eb"}`,background:cardBg}}>
+                  <button onClick={()=>setExpanded(open?null:row.no)} style={{width:"100%",background:headerBg,color:headerColor,border:"none",padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",textAlign:"left"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+                      <div style={{width:"48px",height:"48px",borderRadius:"50%",background:row.confirmed||row.seedDate?"rgba(255,255,255,0.9)":"#059669",color:row.confirmed?"#3b82f6":row.seedDate?"#059669":"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"900",fontSize:"20px",flexShrink:0}}>{row.no}</div>
+                      <div>
+                        <div style={{fontSize:"11px",opacity:0.8}}>収穫指定日</div>
+                        <div style={{fontWeight:"bold",fontSize:"14px"}}>{row.harvest1} / {row.harvest2}</div>
+                        <div style={{fontSize:"11px",opacity:0.8}}>播種目安: {row.target||"-"}</div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {row.confirmed&&<span className="bg-white text-blue-600 text-xs font-bold px-3 py-1 rounded-full">✓ 完了</span>}
-                      <span className={"text-xl "+(open?"rotate-180":"")}>︾</span>
+                    <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                      {row.confirmed&&<span style={{background:"rgba(255,255,255,0.9)",color:"#3b82f6",fontSize:"11px",fontWeight:"bold",padding:"4px 10px",borderRadius:"99px"}}>✓ 完了</span>}
+                      <span style={{fontSize:"20px",transform:open?"rotate(180deg)":"none",transition:"transform 0.2s"}}>︾</span>
                     </div>
                   </button>
                   {open&&(
-                    <div className="px-4 py-3">
-                      <div className="grid grid-cols-4 gap-2 mb-3">
-                        <div><label className="block text-[11px] text-gray-500 mb-1">📅 播種日</label>
-                          <DateBtn value={row.seedDate} disabled={row.confirmed} target={row.target} onChange={v=>chkDate(idx,v,false,null)}/></div>
-                        <div><label className="block text-[11px] text-gray-500 mb-1">📐 面積</label>
-                          <button disabled={row.confirmed} onClick={()=>setModal({rowIdx:idx,field:"area",label:"面積",unit:"a",maxBase:90,warnMsg:"90aを超えます",allowHyphen:false,isJA:false,p:null})}
-                            className={"w-full border-2 rounded-lg px-1.5 py-1.5 text-xs text-center "+(row.confirmed?"border-gray-200 bg-gray-50 text-gray-400":"border-emerald-300 bg-white")}>
-                            {row.area?<span className="font-bold">{row.area}a</span>:<span className="text-gray-300">タップ</span>}</button></div>
-                        <div><label className="block text-[11px] text-gray-500 mb-1">📏 株間</label>
-                          <button disabled={row.confirmed} onClick={()=>setModal({rowIdx:idx,field:"spacing",label:"株間",unit:"cm",maxBase:30,warnMsg:"30cmを超えます",allowHyphen:false,isJA:false,p:null})}
-                            className={"w-full border-2 rounded-lg px-1.5 py-1.5 text-xs text-center "+(row.confirmed?"border-gray-200 bg-gray-50 text-gray-400":"border-emerald-300 bg-white")}>
-                            {row.spacing?<span className="font-bold">{row.spacing}cm</span>:<span className="text-gray-300">タップ</span>}</button></div>
-                        <div><label className="block text-[11px] text-gray-500 mb-1">🗺 圃場</label>
-                          <button disabled={row.confirmed} onClick={()=>setModal({rowIdx:idx,field:"field",label:"圃場番号",unit:"",maxBase:undefined,warnMsg:"",allowHyphen:true,isJA:false,p:null})}
-                            className={"w-full border-2 rounded-lg px-1.5 py-1.5 text-xs text-center "+(row.confirmed?"border-gray-200 bg-gray-50 text-gray-400":"border-emerald-300 bg-white")}>
-                            {row.field?<span className="font-bold">{row.field}</span>:<span className="text-gray-300">タップ</span>}</button></div>
-                      </div>
-                      <div className="flex flex-wrap gap-3 mb-3">
-                        {[["🌱 品種","crop",CROP_OPTIONS],["🎨 マルチ","mulch",MULCH_OPTIONS]].map(([l,f,opts])=>(
-                          <div key={f} className="flex-1 min-w-[130px]"><label className="block text-xs text-gray-500 mb-1">{l}</label>
-                            <select disabled={row.confirmed} className={"border-2 rounded-xl px-2 py-2.5 text-sm w-full "+(row.confirmed?"border-gray-200 bg-gray-50":"border-emerald-300 bg-white")}
-                              value={row[f]} onChange={e=>setCell(idx,f,e.target.value)}>
-                              <option value="">-- 選択 --</option>{opts.map(o=><option key={o} value={o}>{o}</option>)}
-                            </select></div>
+                    <div style={{padding:"16px"}}>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"12px"}}>
+                        {[
+                          {label:"📅 播種日",isDate:true},
+                          {label:"📐 面積",field:"area",unit:"a",max:90,warn:"90aを超えます"},
+                          {label:"📏 株間",field:"spacing",unit:"cm",max:30,warn:"30cmを超えます"},
+                          {label:"🗺 圃場",field:"field",hyphen:true}
+                        ].map(({label,isDate,field,unit,max,warn,hyphen})=>(
+                          <div key={label}>
+                            <div style={{fontSize:"11px",color:"#6b7280",marginBottom:"4px",fontWeight:"500"}}>{label}</div>
+                            {isDate?(
+                              <DateBtn value={row.seedDate} disabled={row.confirmed} target={row.target} onChange={v=>chkDate(idx,v,false,null)}/>
+                            ):(
+                              <button disabled={row.confirmed} onClick={()=>setModal({rowIdx:idx,field,label:label.replace(/^../,""),unit:unit||"",maxBase:max,warnMsg:warn||"",allowHyphen:!!hyphen,isJA:false,p:null})}
+                                style={{width:"100%",border:`2px solid ${row.confirmed?"#e5e7eb":"#6ee7b7"}`,borderRadius:"8px",padding:"6px",fontSize:"12px",textAlign:"center",background:row.confirmed?"#f9fafb":"white",cursor:row.confirmed?"default":"pointer",color:row.confirmed?"#9ca3af":"#111827",boxSizing:"border-box"}}>
+                                {row[field]?<b>{row[field]}{unit||""}</b>:<span style={{color:"#d1d5db"}}>タップ</span>}
+                              </button>
+                            )}
+                          </div>
                         ))}
                       </div>
-                      <div className="mb-3"><label className="block text-xs text-gray-500 mb-1">📝 備考</label>
-                        <input type="text" disabled={row.confirmed} className={"w-full border-2 rounded-xl px-3 py-2.5 text-sm "+(row.confirmed?"border-gray-200 bg-gray-50":"border-emerald-300")}
-                          value={row.note} onChange={e=>setCell(idx,"note",e.target.value)} placeholder="自由記入"/></div>
-                      <div className="mb-3"><label className="block text-xs text-gray-500 mb-1">🙋 自己評価</label>
-                        <input type="text" className="w-full border-2 border-sky-200 rounded-xl px-3 py-2.5 text-sm bg-sky-50"
-                          value={row.selfEval||""} onChange={e=>setCell(idx,"selfEval",e.target.value)} placeholder="例: 発芽そろい良好"/></div>
+                      <div style={{display:"flex",gap:"12px",marginBottom:"12px",flexWrap:"wrap"}}>
+                        {[["🌱 品種","crop",CROP_OPTIONS],["🎨 マルチ","mulch",MULCH_OPTIONS]].map(([l,f,opts])=>(
+                          <div key={f} style={{flex:1,minWidth:"130px"}}>
+                            <div style={{fontSize:"12px",color:"#6b7280",marginBottom:"4px"}}>{l}</div>
+                            <select disabled={row.confirmed} value={row[f]} onChange={e=>setCell(idx,f,e.target.value)}
+                              style={{width:"100%",border:`2px solid ${row.confirmed?"#e5e7eb":"#6ee7b7"}`,borderRadius:"10px",padding:"10px 8px",fontSize:"14px",background:row.confirmed?"#f9fafb":"white",cursor:row.confirmed?"default":"pointer",boxSizing:"border-box"}}>
+                              <option value="">-- 選択 --</option>{opts.map(o=><option key={o} value={o}>{o}</option>)}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{marginBottom:"12px"}}>
+                        <div style={{fontSize:"12px",color:"#6b7280",marginBottom:"4px"}}>📝 備考</div>
+                        <input type="text" disabled={row.confirmed} value={row.note} onChange={e=>setCell(idx,"note",e.target.value)} placeholder="自由記入"
+                          style={{width:"100%",border:`2px solid ${row.confirmed?"#e5e7eb":"#6ee7b7"}`,borderRadius:"10px",padding:"10px 12px",fontSize:"14px",background:row.confirmed?"#f9fafb":"white",boxSizing:"border-box"}}/>
+                      </div>
+                      <div style={{marginBottom:"12px"}}>
+                        <div style={{fontSize:"12px",color:"#6b7280",marginBottom:"4px"}}>🙋 自己評価</div>
+                        <input type="text" value={row.selfEval||""} onChange={e=>setCell(idx,"selfEval",e.target.value)} placeholder="例: 発芽そろい良好"
+                          style={{width:"100%",border:"2px solid #bae6fd",borderRadius:"10px",padding:"10px 12px",fontSize:"14px",background:"#f0f9ff",boxSizing:"border-box"}}/>
+                      </div>
                       {row.confirmed
-                        ?<button onClick={()=>setCell(idx,"confirmed",false)} className="w-full py-3 rounded-xl border-2 border-gray-300 text-gray-500 font-bold text-sm">解除して修正する</button>
+                        ?<button onClick={()=>setCell(idx,"confirmed",false)} style={{width:"100%",padding:"12px",borderRadius:"10px",border:"2px solid #d1d5db",background:"white",color:"#6b7280",fontWeight:"bold",cursor:"pointer",fontSize:"14px"}}>解除して修正する</button>
                         :<button disabled={!row.seedDate} onClick={()=>{setCell(idx,"confirmed",true);setExpanded(null);}}
-                          className="w-full py-3 rounded-xl bg-emerald-500 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold text-base">✓ 更新する（入力完了）</button>
+                          style={{width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:row.seedDate?"#059669":"#d1d5db",color:row.seedDate?"white":"#9ca3af",fontWeight:"bold",cursor:row.seedDate?"pointer":"default",fontSize:"16px"}}>✓ 更新する（入力完了）</button>
                       }
                     </div>
                   )}
@@ -419,24 +437,24 @@ function App(){
             })}
           </div>
         ):(
-          <div className="p-3 pb-8">
-            <div className="bg-white rounded-xl shadow overflow-x-auto">
-              <table className="w-full text-xs border-collapse">
-                <thead><tr className="bg-emerald-100">
-                  {["回数","指定日","播種日","面積","品種","マルチ","株間","圃場","状態"].map(h=><th key={h} className="p-1 border text-[10px]">{h}</th>)}
+          <div style={{padding:"12px",paddingBottom:"32px"}}>
+            <div style={{...S.card,overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+                <thead><tr style={{background:"#d1fae5"}}>
+                  {["回数","指定日","播種日","面積","品種","マルチ","株間","圃場","状態"].map(h=><th key={h} style={{border:"1px solid #e5e7eb",padding:"6px 4px",fontSize:"10px",fontWeight:"600",color:"#065f46"}}>{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {rows.filter(r=>r.harvest1||r.seedDate).map(row=>(
-                    <tr key={row.no} onClick={()=>{setPtab("input");setExpanded(row.no);}} className={"cursor-pointer "+(row.confirmed?"bg-blue-50":row.seedDate?"bg-emerald-50":"")}>
-                      <td className="p-1 border text-center font-bold">{row.no}</td>
-                      <td className="p-1 border text-center text-[9px]">{row.harvest1}<br/>{row.harvest2}</td>
-                      <td className="p-1 border text-center">{row.seedDate?row.seedDate.slice(5).replace("-","/"):"-"}</td>
-                      <td className="p-1 border text-center">{row.area?row.area+"a":"-"}</td>
-                      <td className="p-1 border text-center truncate max-w-[60px]">{row.crop||"-"}</td>
-                      <td className="p-1 border text-center truncate max-w-[50px]">{row.mulch||"-"}</td>
-                      <td className="p-1 border text-center">{row.spacing?row.spacing+"cm":"-"}</td>
-                      <td className="p-1 border text-center">{row.field||"-"}</td>
-                      <td className="p-1 border text-center">{row.confirmed?<span className="text-blue-600 font-bold">完了</span>:row.seedDate?<span className="text-emerald-600">入力中</span>:<span className="text-amber-500">未入力</span>}</td>
+                    <tr key={row.no} onClick={()=>{setPtab("input");setExpanded(row.no);}} style={{cursor:"pointer",background:row.confirmed?"#eff6ff":row.seedDate?"#f0fdf4":"white"}}>
+                      <td style={{border:"1px solid #e5e7eb",padding:"4px",textAlign:"center",fontWeight:"bold"}}>{row.no}</td>
+                      <td style={{border:"1px solid #e5e7eb",padding:"4px",textAlign:"center",fontSize:"10px"}}>{row.harvest1}<br/>{row.harvest2}</td>
+                      <td style={{border:"1px solid #e5e7eb",padding:"4px",textAlign:"center"}}>{row.seedDate?row.seedDate.slice(5).replace("-","/"):"-"}</td>
+                      <td style={{border:"1px solid #e5e7eb",padding:"4px",textAlign:"center"}}>{row.area?row.area+"a":"-"}</td>
+                      <td style={{border:"1px solid #e5e7eb",padding:"4px",textAlign:"center",maxWidth:"60px",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{row.crop||"-"}</td>
+                      <td style={{border:"1px solid #e5e7eb",padding:"4px",textAlign:"center",maxWidth:"50px",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{row.mulch||"-"}</td>
+                      <td style={{border:"1px solid #e5e7eb",padding:"4px",textAlign:"center"}}>{row.spacing?row.spacing+"cm":"-"}</td>
+                      <td style={{border:"1px solid #e5e7eb",padding:"4px",textAlign:"center"}}>{row.field||"-"}</td>
+                      <td style={{border:"1px solid #e5e7eb",padding:"4px",textAlign:"center"}}>{row.confirmed?<span style={{color:"#3b82f6",fontWeight:"bold"}}>完了</span>:row.seedDate?<span style={{color:"#059669"}}>入力中</span>:<span style={{color:"#f59e0b"}}>未入力</span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -450,76 +468,113 @@ function App(){
     );
   }
 
-  // JA画面
+  // JA管理画面
   return(
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-blue-700 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <span className="bg-white text-blue-700 rounded-full w-8 h-8 flex items-center justify-center text-[10px] font-black">JA</span>
-          <h1 className="font-bold text-lg">共選大根 JA管理画面</h1>
-          {saving&&<span className="text-blue-200 text-xs">💾</span>}
+    <div style={{minHeight:"100vh",background:"#f9fafb"}}>
+      <div style={{background:"#1d4ed8",color:"white",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:10,boxShadow:"0 2px 8px rgba(0,0,0,0.15)",flexWrap:"wrap",gap:"8px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+          <div style={{background:"white",color:"#1d4ed8",borderRadius:"50%",width:"32px",height:"32px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",fontWeight:"900"}}>JA</div>
+          <span style={{fontWeight:"bold",fontSize:"18px"}}>共選大根 JA管理画面</span>
+          {saving&&<span style={{fontSize:"12px",opacity:0.7}}>💾</span>}
         </div>
-        <div className="flex gap-2">
-          <button onClick={exportAll} className="bg-blue-800 text-sm px-3 py-1 rounded">全体Excel出力</button>
-          <button onClick={logout} className="bg-blue-900 text-sm px-3 py-1 rounded">ログアウト</button>
+        <div style={{display:"flex",gap:"8px"}}>
+          <button onClick={exportAll} style={{background:"rgba(0,0,0,0.2)",color:"white",border:"none",borderRadius:"6px",padding:"6px 12px",cursor:"pointer",fontSize:"13px"}}>全体Excel出力</button>
+          <button onClick={logout} style={{background:"rgba(0,0,0,0.3)",color:"white",border:"none",borderRadius:"6px",padding:"6px 12px",cursor:"pointer",fontSize:"13px"}}>ログアウト</button>
         </div>
       </div>
-      <div className="flex border-b bg-white sticky top-[56px] z-10">
+      <div style={{display:"flex",borderBottom:"2px solid #e5e7eb",background:"white",position:"sticky",top:"56px",zIndex:9}}>
         {[["list","生産者一覧"],["stats","集計"]].map(([k,l])=>(
-          <button key={k} onClick={()=>{setJtab(k);setSelPid(null);}} className={"px-5 py-2.5 text-sm font-medium border-b-2 "+(jtab===k?"border-blue-600 text-blue-700":"border-transparent text-gray-500")}>{l}</button>
+          <button key={k} onClick={()=>{setJtab(k);setSelPid(null);}}
+            style={{flex:1,padding:"12px 20px",fontSize:"14px",fontWeight:"600",border:"none",borderBottom:`3px solid ${jtab===k?"#2563eb":"transparent"}`,background:"none",cursor:"pointer",color:jtab===k?"#2563eb":"#6b7280"}}>{l}</button>
         ))}
       </div>
       {jtab==="stats"&&<StatsView all={all}/>}
       {jtab==="list"&&(
-        <div className="p-4">
+        <div style={{padding:"16px"}}>
           {!selPid?(
             <>
-              <p className="text-sm text-gray-500 mb-3">{year}年度 — {Object.keys(all).length}名</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <p style={{fontSize:"13px",color:"#6b7280",marginBottom:"12px"}}>{year}年度 — {Object.keys(all).length}名</p>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:"12px"}}>
                 {Object.entries(all).map(([p,d])=>{
                   const filled=(d.rows||[]).filter(r=>r.seedDate).length;
                   return(
-                    <button key={p} onClick={()=>setSelPid(p)} className="bg-white rounded-xl shadow p-4 text-left hover:shadow-md border border-gray-100">
-                      <p className="font-semibold">{d.name}</p>
-                      <p className="text-xs text-gray-400">ID: {p}</p>
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="flex-1 bg-gray-100 rounded-full h-2"><div className="bg-emerald-400 h-2 rounded-full" style={{width:`${(filled/25)*100}%`}}></div></div>
-                        <span className="text-xs text-gray-500">{filled}/25</span>
+                    <button key={p} onClick={()=>setSelPid(p)} style={{...S.card,padding:"16px",textAlign:"left",border:"1px solid #e5e7eb",cursor:"pointer",width:"100%"}}>
+                      <div style={{fontWeight:"600",fontSize:"15px",marginBottom:"2px"}}>{d.name}</div>
+                      <div style={{fontSize:"12px",color:"#9ca3af",marginBottom:"8px"}}>ID: {p}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                        <div style={{flex:1,background:"#f3f4f6",borderRadius:"99px",height:"8px"}}>
+                          <div style={{background:"#34d399",height:"8px",borderRadius:"99px",width:`${(filled/25)*100}%`}}></div>
+                        </div>
+                        <span style={{fontSize:"12px",color:"#6b7280"}}>{filled}/25</span>
                       </div>
                     </button>
                   );
                 })}
-                {Object.keys(all).length===0&&<div className="col-span-3 text-center text-gray-400 py-12"><p>まだ生産者がログインしていません</p></div>}
+                {Object.keys(all).length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",color:"#9ca3af",padding:"48px 0"}}>まだ生産者がログインしていません</div>}
               </div>
             </>
           ):(
             <div>
-              <button onClick={()=>setSelPid(null)} className="text-blue-600 text-sm mb-3 hover:underline">← 一覧へ戻る</button>
-              <h2 className="font-bold text-lg mb-3">{all[selPid]?.name} さん</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs bg-white rounded-lg shadow border-collapse">
-                  <thead><tr className="bg-blue-100">
-                    {["回数","指定日1","指定日2","播種目安","メモ","播種日","面積","品種","マルチ","株間","圃場","備考","状態"].map(h=><th key={h} className="p-0.5 border text-[10px]">{h}</th>)}
+              <button onClick={()=>setSelPid(null)} style={{color:"#2563eb",fontSize:"13px",background:"none",border:"none",cursor:"pointer",marginBottom:"12px"}}>← 一覧へ戻る</button>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px",flexWrap:"wrap",gap:"8px"}}>
+                <h2 style={{fontSize:"18px",fontWeight:"bold",margin:0}}>{all[selPid]?.name} さん</h2>
+              </div>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px",background:"white",borderRadius:"8px",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,0.08)"}}>
+                  <thead><tr style={{background:"#dbeafe"}}>
+                    {["回数","指定日1","指定日2","播種目安","メモ","播種日","面積","品種","マルチ","株間","圃場","備考","状態"].map(h=><th key={h} style={{border:"1px solid #e5e7eb",padding:"4px 2px",fontSize:"10px",fontWeight:"600",color:"#1e40af"}}>{h}</th>)}
                   </tr></thead>
                   <tbody>
                     {(all[selPid]?.rows||[]).map((row,idx)=>(
-                      <tr key={row.no} className={row.confirmed?"bg-blue-50":row.seedDate?"bg-emerald-50":"bg-white"}>
-                        <td className="p-0.5 border text-center text-[11px] font-bold">{row.no}</td>
-                        <td className="p-0.5 border text-center text-[9px]">{row.harvest1||"-"}</td>
-                        <td className="p-0.5 border text-center text-[9px]">{row.harvest2||"-"}</td>
-                        <td className="p-0.5 border text-center text-[9px]">{row.target||"-"}</td>
-                        <td className="p-0.5 border bg-violet-50"><input type="text" className="w-full border-0 text-[10px] bg-transparent focus:outline-none text-violet-700 px-0.5" value={row.jaTag||""} onChange={e=>setJaCell(selPid,idx,"jaTag",e.target.value)} placeholder="メモ"/></td>
-                        <td className="p-0.5 border bg-amber-50"><DateBtn value={row.seedDate} disabled={row.confirmed} compact target={row.target} onChange={v=>chkDate(idx,v,true,selPid)}/></td>
-                        <td className="p-0.5 border bg-amber-50"><button disabled={row.confirmed} onClick={()=>setModal({rowIdx:idx,field:"area",label:"面積",unit:"a",maxBase:90,warnMsg:"90a超え",allowHyphen:false,isJA:true,p:selPid})} className={"w-full border-2 rounded px-1 py-1 text-[10px] text-center "+(row.confirmed?"border-gray-200 bg-gray-50":"border-amber-200 bg-white")}>{row.area?row.area+"a":<span className="text-gray-300">入力</span>}</button></td>
-                        <td className="p-0.5 border bg-amber-50"><select disabled={row.confirmed} className="w-full border-0 text-[10px] bg-transparent" value={row.crop} onChange={e=>setJaCell(selPid,idx,"crop",e.target.value)}><option value=""></option>{CROP_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}</select></td>
-                        <td className="p-0.5 border bg-amber-50"><select disabled={row.confirmed} className="w-full border-0 text-[10px] bg-transparent" value={row.mulch} onChange={e=>setJaCell(selPid,idx,"mulch",e.target.value)}><option value=""></option>{MULCH_OPTIONS.map(m=><option key={m} value={m}>{m}</option>)}</select></td>
-                        <td className="p-0.5 border bg-amber-50"><button disabled={row.confirmed} onClick={()=>setModal({rowIdx:idx,field:"spacing",label:"株間",unit:"cm",maxBase:30,warnMsg:"30cm超え",allowHyphen:false,isJA:true,p:selPid})} className={"w-full border-2 rounded px-1 py-1 text-[10px] text-center "+(row.confirmed?"border-gray-200 bg-gray-50":"border-amber-200 bg-white")}>{row.spacing?row.spacing+"cm":<span className="text-gray-300">入力</span>}</button></td>
-                        <td className="p-0.5 border bg-amber-50"><button disabled={row.confirmed} onClick={()=>setModal({rowIdx:idx,field:"field",label:"圃場番号",unit:"",maxBase:undefined,warnMsg:"",allowHyphen:true,isJA:true,p:selPid})} className={"w-full border-2 rounded px-1 py-1 text-[10px] text-center "+(row.confirmed?"border-gray-200 bg-gray-50":"border-amber-200 bg-white")}>{row.field||<span className="text-gray-300">入力</span>}</button></td>
-                        <td className="p-0.5 border"><input type="text" disabled={row.confirmed} className="w-full border-0 text-[10px] focus:outline-none px-0.5" value={row.note} onChange={e=>setJaCell(selPid,idx,"note",e.target.value)}/></td>
-                        <td className="p-0.5 border text-center">
+                      <tr key={row.no} style={{background:row.confirmed?"#eff6ff":row.seedDate?"#f0fdf4":"white"}}>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px",textAlign:"center",fontWeight:"bold",fontSize:"11px"}}>{row.no}</td>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px",textAlign:"center",fontSize:"9px"}}>{row.harvest1||"-"}</td>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px",textAlign:"center",fontSize:"9px"}}>{row.harvest2||"-"}</td>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px",textAlign:"center",fontSize:"9px"}}>{row.target||"-"}</td>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px",background:"#f5f3ff"}}>
+                          <input type="text" value={row.jaTag||""} onChange={e=>setJaCell(selPid,idx,"jaTag",e.target.value)} placeholder="メモ"
+                            style={{width:"100%",border:"none",background:"transparent",fontSize:"10px",outline:"none",color:"#7c3aed",padding:"0 2px",boxSizing:"border-box"}}/>
+                        </td>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px",background:"#fffbeb"}}>
+                          <DateBtn value={row.seedDate} disabled={row.confirmed} compact target={row.target} onChange={v=>chkDate(idx,v,true,selPid)}/>
+                        </td>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px",background:"#fffbeb"}}>
+                          <button disabled={row.confirmed} onClick={()=>setModal({rowIdx:idx,field:"area",label:"面積",unit:"a",maxBase:90,warnMsg:"90a超え",allowHyphen:false,isJA:true,p:selPid})}
+                            style={{width:"100%",border:`1px solid ${row.confirmed?"#e5e7eb":"#fcd34d"}`,borderRadius:"4px",padding:"3px",fontSize:"10px",textAlign:"center",background:row.confirmed?"#f9fafb":"white",cursor:row.confirmed?"default":"pointer",boxSizing:"border-box"}}>
+                            {row.area?row.area+"a":<span style={{color:"#d1d5db"}}>入力</span>}</button>
+                        </td>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px",background:"#fffbeb"}}>
+                          <select disabled={row.confirmed} value={row.crop} onChange={e=>setJaCell(selPid,idx,"crop",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:"10px",outline:"none"}}>
+                            <option value=""></option>{CROP_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </td>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px",background:"#fffbeb"}}>
+                          <select disabled={row.confirmed} value={row.mulch} onChange={e=>setJaCell(selPid,idx,"mulch",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:"10px",outline:"none"}}>
+                            <option value=""></option>{MULCH_OPTIONS.map(m=><option key={m} value={m}>{m}</option>)}
+                          </select>
+                        </td>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px",background:"#fffbeb"}}>
+                          <button disabled={row.confirmed} onClick={()=>setModal({rowIdx:idx,field:"spacing",label:"株間",unit:"cm",maxBase:30,warnMsg:"30cm超え",allowHyphen:false,isJA:true,p:selPid})}
+                            style={{width:"100%",border:`1px solid ${row.confirmed?"#e5e7eb":"#fcd34d"}`,borderRadius:"4px",padding:"3px",fontSize:"10px",textAlign:"center",background:row.confirmed?"#f9fafb":"white",cursor:row.confirmed?"default":"pointer",boxSizing:"border-box"}}>
+                            {row.spacing?row.spacing+"cm":<span style={{color:"#d1d5db"}}>入力</span>}</button>
+                        </td>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px",background:"#fffbeb"}}>
+                          <button disabled={row.confirmed} onClick={()=>setModal({rowIdx:idx,field:"field",label:"圃場番号",unit:"",maxBase:undefined,warnMsg:"",allowHyphen:true,isJA:true,p:selPid})}
+                            style={{width:"100%",border:`1px solid ${row.confirmed?"#e5e7eb":"#fcd34d"}`,borderRadius:"4px",padding:"3px",fontSize:"10px",textAlign:"center",background:row.confirmed?"#f9fafb":"white",cursor:row.confirmed?"default":"pointer",boxSizing:"border-box"}}>
+                            {row.field||<span style={{color:"#d1d5db"}}>入力</span>}</button>
+                        </td>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px"}}>
+                          <input type="text" disabled={row.confirmed} value={row.note} onChange={e=>setJaCell(selPid,idx,"note",e.target.value)}
+                            style={{width:"100%",border:"none",background:"transparent",fontSize:"10px",outline:"none",padding:"0 2px",boxSizing:"border-box"}}/>
+                        </td>
+                        <td style={{border:"1px solid #e5e7eb",padding:"2px",textAlign:"center"}}>
                           {row.confirmed
-                            ?<div className="flex flex-col items-center"><span className="bg-blue-500 text-white text-[8px] px-1 py-0.5 rounded-full font-bold">完了</span><button onClick={()=>setJaCell(selPid,idx,"confirmed",false)} className="text-[8px] text-gray-400 underline">解除</button></div>
-                            :<button disabled={!row.seedDate} onClick={()=>setJaCell(selPid,idx,"confirmed",true)} className="bg-emerald-500 disabled:bg-gray-200 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">更新</button>
+                            ?<div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"2px"}}>
+                                <span style={{background:"#3b82f6",color:"white",fontSize:"8px",padding:"2px 4px",borderRadius:"99px",fontWeight:"bold"}}>完了</span>
+                                <button onClick={()=>setJaCell(selPid,idx,"confirmed",false)} style={{fontSize:"8px",color:"#9ca3af",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}}>解除</button>
+                              </div>
+                            :<button disabled={!row.seedDate} onClick={()=>setJaCell(selPid,idx,"confirmed",true)}
+                                style={{background:row.seedDate?"#10b981":"#e5e7eb",color:row.seedDate?"white":"#9ca3af",border:"none",borderRadius:"4px",padding:"3px 6px",fontSize:"9px",fontWeight:"bold",cursor:row.seedDate?"pointer":"default"}}>更新</button>
                           }
                         </td>
                       </tr>
