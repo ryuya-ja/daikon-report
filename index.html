@@ -183,14 +183,90 @@ function DateConfirmModal({diff,onClose,onConfirm}){
   );
 }
 
+function BarChart({data,maxVal,colorFn,height=160}){
+  const W=320,pad={t:8,b:48,l:36,r:8};
+  const iW=W-pad.l-pad.r,iH=height-pad.t-pad.b;
+  const bw=Math.max(4,Math.min(24,iW/Math.max(1,data.length)-2));
+  const yTicks=[0,0.25,0.5,0.75,1];
+  return(
+    <svg width="100%" viewBox={`0 0 ${W} ${height}`} style={{overflow:"visible"}}>
+      {yTicks.map(t=>{
+        const y=pad.t+iH*(1-t);
+        return<g key={t}>
+          <line x1={pad.l} y1={y} x2={W-pad.r} y2={y} stroke="#e5e7eb" strokeWidth="1"/>
+          <text x={pad.l-4} y={y} textAnchor="end" dominantBaseline="middle" fontSize="9" fill="#9ca3af">{Math.round(maxVal*t)}a</text>
+        </g>;
+      })}
+      <line x1={pad.l} y1={pad.t+iH} x2={W-pad.r} y2={pad.t+iH} stroke="#d1d5db" strokeWidth="1"/>
+      {data.map((d,i)=>{
+        const x=pad.l+i*(iW/data.length)+(iW/data.length-bw)/2;
+        const bh=maxVal>0?(d.value/maxVal)*iH:0;
+        const y=pad.t+iH-bh;
+        return<g key={i}>
+          <rect x={x} y={y} width={bw} height={Math.max(0,bh)} fill={colorFn(i)} rx="2"/>
+          {d.value>0&&<text x={x+bw/2} y={y-3} textAnchor="middle" fontSize="8" fill="#374151">{d.value}a</text>}
+          <text x={x+bw/2} y={pad.t+iH+6} textAnchor="middle" fontSize="8" fill="#6b7280"
+            transform={`rotate(-40,${x+bw/2},${pad.t+iH+6})`}>{d.label}</text>
+        </g>;
+      })}
+    </svg>
+  );
+}
+
+function SeedDateChart({all}){
+  const rows=collectRows(all);
+  const months=[...new Set(rows.map(r=>r.month))].sort((a,b)=>a-b);
+  const allCrops=[...new Set(rows.map(r=>r.crop||"未選択"))].sort();
+  const [selMonth,setSelMonth]=useState(null);
+  const curMonth=selMonth||(months[0]||5);
+  const monthRows=rows.filter(r=>r.month===curMonth);
+  const daysInMonth=new Date(2025,curMonth,0).getDate();
+  const dayMap={};
+  for(let d=1;d<=daysInMonth;d++)dayMap[d]={};
+  monthRows.forEach(r=>{
+    const c=r.crop||"未選択";
+    dayMap[r.day][c]=(dayMap[r.day][c]||0)+r.area;
+  });
+  // 旬ごとに集計してグラフ表示
+  const decData=[];
+  [[1,10,"上旬"],[11,20,"中旬"],[21,daysInMonth,"下旬"]].forEach(([s,e,label])=>{
+    let total=0;
+    for(let d=s;d<=e;d++) allCrops.forEach(c=>{total+=(dayMap[d]?.[c]||0);});
+    decData.push({label:`${curMonth}月${label}`,value:total});
+  });
+  const maxV=Math.max(1,...decData.map(d=>d.value));
+  if(rows.length===0)return null;
+  return(
+    <div className="bg-white rounded-xl shadow p-4">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h3 className="font-bold text-gray-800">播種日別 面積グラフ（旬別）</h3>
+        <div className="flex gap-1 flex-wrap">
+          {months.map(m=>(
+            <button key={m} onClick={()=>setSelMonth(m)}
+              className={"text-sm px-3 py-1 rounded-full "+(curMonth===m?"bg-blue-600 text-white":"bg-gray-100 text-gray-600 hover:bg-gray-200")}>
+              {m}月
+            </button>
+          ))}
+        </div>
+      </div>
+      <BarChart data={decData} maxVal={maxV} colorFn={i=>CROP_COLORS[i%CROP_COLORS.length]} height={160}/>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {decData.map((d,i)=>(
+          <div key={i} className="text-xs bg-gray-50 rounded px-2 py-1">
+            <span className="font-bold">{d.label}:</span> {d.value}a
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StatsView({all}){
   const rows=collectRows(all);
   const months=[...new Set(rows.map(r=>r.month))].sort((a,b)=>a-b);
   const allCrops=[...new Set(rows.map(r=>r.crop||"未選択"))].sort();
   const allSpacings=[...new Set(rows.map(r=>r.spacing?`${r.spacing}cm`:"未選択"))].sort((a,b)=>{const an=parseFloat(a),bn=parseFloat(b);if(isNaN(an))return 1;if(isNaN(bn))return-1;return an-bn;});
   const allMulches=[...new Set(rows.map(r=>r.mulch||"未選択"))].sort();
-  const [selMonth,setSelMonth]=useState(null);
-  const curMonth=selMonth||(months[0]||5);
 
   const decadeKeys=[];
   months.forEach(m=>["上旬","中旬","下旬"].forEach(d=>decadeKeys.push({m,d,label:`${m}月${d}`})));
@@ -271,6 +347,7 @@ function StatsView({all}){
 
   return(
     <div className="p-4 space-y-8">
+      <SeedDateChart all={all}/>
       <DecadeTable title="品種別 月旬別面積表" groups={allCrops} groupMap={cropMap} colorFn={i=>CROP_COLORS[i%CROP_COLORS.length]} unitLabel="品種"/>
       <DecadeTable title="株間別 月旬別面積表" groups={allSpacings} groupMap={spacingMap} colorFn={i=>CROP_COLORS[(i+3)%CROP_COLORS.length]} unitLabel="株間"/>
       <DecadeTable title="マルチ別 月旬別面積表" groups={allMulches} groupMap={mulchMap} colorFn={i=>CROP_COLORS[(i+6)%CROP_COLORS.length]} unitLabel="マルチ"/>
