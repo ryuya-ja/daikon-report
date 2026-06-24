@@ -430,16 +430,15 @@ function App(){
       try{
         const wb=X.read(evt.target.result,{type:"binary",cellDates:true});
         const json=X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-        let count=0;
+        // すでにいる生産者一覧を取得
+        const users=await fbLoadUsers();
+        let updated=0,skipped=0;
         for(const row of json){
           const p=String(row["生産者ID"]??"").trim();if(!p)continue;
-          const pname=String(row["生産者名"]||p).trim();
-          // usersコレクションに登録（なければ追加）
-          const usnap=await DB.collection("users").doc(p).get();
-          if(!usnap.exists){
-            await DB.collection("users").doc(p).set({name:pname});
-          }
-          // reportsに収穫指定日を設定
+          // usersにいない生産者はスキップ
+          if(!users[p]){skipped++;continue;}
+          const pname=users[p].name;
+          // reportsの指定日だけ更新（入力済みデータは上書きしない）
           const snap=await DB.collection("reports").doc(YEAR+"_"+p).get();
           const existing=snap.exists?snap.data():{name:pname,rows:makeEmptyRows()};
           existing.name=pname;
@@ -454,11 +453,12 @@ function App(){
             }
           }
           await DB.collection("reports").doc(YEAR+"_"+p).set(existing);
-          count++;
+          updated++;
         }
-        // 画面を更新
         const newAll=await fbLoadAll();setAll(newAll);
-        alert(`インポート完了：${count}名を登録・更新しました`);
+        let msg=`インポート完了：${updated}名の指定日を更新しました。`;
+        if(skipped>0)msg+=`\n※${skipped}名はusersに未登録のためスキップしました。`;
+        alert(msg);
       }catch(err){alert("インポートエラー: "+err.message);}
     };
     reader.readAsBinaryString(file);
